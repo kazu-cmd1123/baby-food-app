@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, addDays, subDays } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { getClient } from '@/lib/pocketbase/client'
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Trash2, Camera, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Trash2, Camera, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
 import Image from 'next/image'
 
 interface RecordedFood {
@@ -26,10 +26,11 @@ interface RecordedFood {
 interface MealRecord {
   id: string
   meal_time: string
+  time: string            // 食べた時刻 e.g. "08:30"
   foods: RecordedFood[]
   notes: string
-  photos: string[]        // PocketBase: array of filenames
-  photo_urls?: string[]   // local preview URLs before save
+  photos: string[]
+  photo_urls?: string[]
 }
 
 interface Child {
@@ -61,6 +62,13 @@ const REACTIONS = [
 
 const UNITS = ['g', 'ml', '個', '枚', '杯', '口', '小さじ', '大さじ']
 
+const DEFAULT_TIMES: Record<string, string> = {
+  morning: '08:00',
+  noon: '12:00',
+  evening: '18:00',
+  snack: '15:00',
+}
+
 export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
   const router = useRouter()
   const [records, setRecords] = useState<MealRecord[]>(initialRecords)
@@ -74,13 +82,21 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL
+  const parsedDate = parseISO(date)
+  const isToday = date === format(new Date(), 'yyyy-MM-dd')
 
   function getPhotoUrl(record: MealRecord, filename: string): string {
     return `${pbUrl}/api/files/meal_records/${record.id}/${filename}`
   }
 
-  const availableFoods = ageMonths > 0 ? getFoodsForAge(ageMonths) : FOODS
+  function navigateDate(dir: -1 | 1) {
+    const next = dir === 1 ? addDays(parsedDate, 1) : subDays(parsedDate, 1)
+    // 未来の日付には進まない
+    if (dir === 1 && next > new Date()) return
+    router.push(`/dashboard/records?date=${format(next, 'yyyy-MM-dd')}`)
+  }
 
+  const availableFoods = ageMonths > 0 ? getFoodsForAge(ageMonths) : FOODS
   const filteredFoods = availableFoods.filter(f =>
     f.name.includes(foodSearch) || foodSearch === ''
   ).slice(0, 20)
@@ -90,23 +106,28 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
     if (existing) {
       setEditingRecord({ ...existing })
     } else {
-      setEditingRecord({ meal_time: mealTime, foods: [], notes: '', photos: [] })
+      setEditingRecord({
+        meal_time: mealTime,
+        time: DEFAULT_TIMES[mealTime] || '',
+        foods: [],
+        notes: '',
+        photos: [],
+      })
     }
     setActiveMealTime(mealTime)
   }
 
   function addFood(food: { id: string; name: string }) {
     if (!editingRecord) return
-    const newFood: RecordedFood = {
-      food_id: food.id,
-      food_name: food.name,
-      amount: '',
-      unit: 'g',
-      reaction: null,
-    }
     setEditingRecord(prev => ({
       ...prev,
-      foods: [...(prev?.foods || []), newFood],
+      foods: [...(prev?.foods || []), {
+        food_id: food.id,
+        food_name: food.name,
+        amount: '',
+        unit: 'g',
+        reaction: null,
+      }],
     }))
     setFoodSearch('')
     setShowFoodPicker(false)
@@ -135,7 +156,6 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
     const files = e.target.files
     if (!files || files.length === 0) return
     setUploadingPhoto(true)
-    // store File objects temporarily; uploaded on save
     const newFiles = Array.from(files)
     setPendingPhotos(prev => [...prev, ...newFiles])
     const previewUrls = newFiles.map(f => URL.createObjectURL(f))
@@ -147,7 +167,6 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
   }
 
   function removePhoto(url: string) {
-    // remove from pending if it's a blob URL
     if (url.startsWith('blob:')) {
       const idx = (editingRecord?.photo_urls || []).indexOf(url)
       if (idx !== -1) setPendingPhotos(prev => prev.filter((_, i) => i !== idx))
@@ -167,6 +186,7 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
     formData.append('child', child.id)
     formData.append('date', date)
     formData.append('meal_time', editingRecord.meal_time || '')
+    formData.append('time', editingRecord.time || '')
     formData.append('foods', JSON.stringify(editingRecord.foods || []))
     formData.append('notes', editingRecord.notes || '')
     pendingPhotos.forEach(file => formData.append('photos', file))
@@ -199,8 +219,6 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
     }
   }
 
-  const parsedDate = parseISO(date)
-
   if (!child) {
     return (
       <Card>
@@ -213,11 +231,38 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="font-bold text-gray-800">
-          {format(parsedDate, 'M月d日(E)', { locale: ja })}の記録
-        </h2>
-        <span className="text-sm text-gray-500">{child.name}</span>
+      {/* 日付ナビゲーション */}
+      <div className="flex items-center justify-between bg-white rounded-xl px-2 py-2 shadow-sm border">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateDate(-1)}>
+          <ChevronLeft size={18} />
+        </Button>
+        <div className="text-center">
+          <p className="font-bold text-gray-800">
+            {format(parsedDate, 'M月d日(E)', { locale: ja })}
+          </p>
+          {isToday && <span className="text-xs text-orange-500 font-medium">今日</span>}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => navigateDate(1)}
+          disabled={isToday}
+        >
+          <ChevronRight size={18} className={isToday ? 'text-gray-300' : ''} />
+        </Button>
+      </div>
+
+      {/* 日付ピッカー */}
+      <div className="flex items-center gap-2">
+        <input
+          type="date"
+          value={date}
+          max={format(new Date(), 'yyyy-MM-dd')}
+          onChange={e => router.push(`/dashboard/records?date=${e.target.value}`)}
+          className="flex-1 h-8 text-xs border rounded-lg px-2 bg-white text-gray-600"
+        />
+        <span className="text-xs text-gray-400">{child.name}</span>
       </div>
 
       {MEAL_TIMES.map(mt => {
@@ -231,6 +276,11 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
                 <CardTitle className="text-sm flex items-center gap-2">
                   <span>{mt.emoji}</span>
                   {mt.label}
+                  {record?.time && (
+                    <span className="text-xs text-gray-400 flex items-center gap-0.5">
+                      <Clock size={10} />{record.time}
+                    </span>
+                  )}
                   {record && <Badge className="text-xs bg-green-100 text-green-700">記録済み</Badge>}
                 </CardTitle>
                 <div className="flex gap-2">
@@ -282,7 +332,8 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
                     <div className="flex gap-1 mt-1">
                       {(record.photos || []).map((filename, i) => (
                         <div key={i} className="relative w-14 h-14 rounded overflow-hidden">
-                          <Image src={getPhotoUrl(record, filename)} alt="" fill className="object-cover" sizes="56px" /></div>
+                          <Image src={getPhotoUrl(record, filename)} alt="" fill className="object-cover" sizes="56px" />
+                        </div>
                       ))}
                     </div>
                   )}
@@ -294,6 +345,18 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
             {/* Edit form */}
             {isActive && editingRecord && (
               <CardContent className="pt-0 pb-4 space-y-4">
+                {/* 時刻 */}
+                <div className="flex items-center gap-2">
+                  <Clock size={14} className="text-gray-400 shrink-0" />
+                  <span className="text-xs font-medium text-gray-700 shrink-0">食べた時刻</span>
+                  <input
+                    type="time"
+                    value={editingRecord.time || ''}
+                    onChange={e => setEditingRecord(prev => ({ ...prev, time: e.target.value }))}
+                    className="h-7 text-xs border rounded px-2 bg-white"
+                  />
+                </div>
+
                 {/* Food picker */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
