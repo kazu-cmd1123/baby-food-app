@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 離乳食記録アプリ
 
-## Getting Started
+赤ちゃんの離乳食を管理・記録するWebアプリです。
 
-First, run the development server:
+## 機能
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **カレンダー表示** — 食事記録をカレンダーで一覧確認
+- **月齢別食材ガイド** — 5〜6ヶ月・7〜8ヶ月・9〜11ヶ月・12〜18ヶ月別の食材・調理法・栄養素・注意事項
+- **写真記録** — 食事の写真をアップロード
+- **食べた量の記録** — g・ml・個など単位付きで記録
+- **食事反応記録** — よく食べた・まあまあ・食べなかった・アレルギー反応
+- **アレルギー管理** — アレルギー食材と症状の重さを記録
+- **メールアドレス認証** — Supabase Auth によるセキュアなログイン
+- **子供の名前・誕生日管理** — 月齢を自動計算して適切な食材を表示
+
+## セットアップ
+
+### 1. Supabaseプロジェクトの作成
+
+1. https://supabase.com でプロジェクトを作成
+2. SQL Editor で supabase-schema.sql の内容を実行
+3. Project Settings > API から URL と anon key を取得
+
+### 2. 環境変数の設定
+
+.env.local を編集：
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. 起動
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 技術スタック
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Next.js 14 (App Router)
+- Supabase (Auth + PostgreSQL + Storage)
+- Tailwind CSS + shadcn/ui
+- TypeScript

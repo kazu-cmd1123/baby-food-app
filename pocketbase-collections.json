@@ -1,0 +1,34 @@
+[
+  {
+    "name": "children",
+    "type": "base",
+    "fields": [
+      { "name": "user", "type": "relation", "collectionId": "_pb_users_auth_", "required": true },
+      { "name": "name", "type": "text", "required": true },
+      { "name": "birthday", "type": "text", "required": true }
+    ]
+  },
+  {
+    "name": "meal_records",
+    "type": "base",
+    "fields": [
+      { "name": "child", "type": "relation", "collectionId": "children", "required": true },
+      { "name": "date", "type": "text", "required": true },
+      { "name": "meal_time", "type": "select", "values": ["morning", "noon", "evening", "snack"], "required": true },
+      { "name": "foods", "type": "json" },
+      { "name": "notes", "type": "text" },
+      { "name": "photos", "type": "file", "maxSelect": 10, "mimeTypes": ["image/jpeg", "image/png", "image/webp", "image/heic"] }
+    ]
+  },
+  {
+    "name": "allergy_records",
+    "type": "base",
+    "fields": [
+      { "name": "child", "type": "relation", "collectionId": "children", "required": true },
+      { "name": "food_name", "type": "text", "required": true },
+      { "name": "severity", "type": "select", "values": ["mild", "moderate", "severe"], "required": true },
+      { "name": "notes", "type": "text" },
+      { "name": "date", "type": "text", "required": true }
+    ]
+  }
+]
