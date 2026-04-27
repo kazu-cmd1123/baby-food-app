@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, getDay } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Clock, Pencil } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, Pencil, ShoppingCart } from 'lucide-react'
 import { getClient } from '@/lib/pocketbase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,8 +19,16 @@ interface MealRecord {
   notes: string
 }
 
+interface PlannedFood {
+  id: string
+  food_name: string
+  target_date: string
+  done: boolean
+}
+
 interface Props {
   initialRecords: { date: string; meal_time: string }[]
+  initialPlans: PlannedFood[]
   children: { id: string; name: string }[]
 }
 
@@ -38,10 +46,11 @@ const MEAL_LABELS: Record<string, { label: string; emoji: string; color: string 
   snack:   { label: 'おやつ', emoji: '🍪', color: 'bg-pink-50 border-pink-200' },
 }
 
-export function CalendarView({ initialRecords, children }: Props) {
+export function CalendarView({ initialRecords, initialPlans, children }: Props) {
   const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [records, setRecords] = useState(initialRecords)
+  const [plans, setPlans] = useState<PlannedFood[]>(initialPlans)
   const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(
     format(new Date(), 'yyyy-MM-dd')
@@ -55,6 +64,14 @@ export function CalendarView({ initialRecords, children }: Props) {
     return acc
   }, {} as Record<string, string[]>)
 
+  // planned foods indexed by target_date (未完了のみ)
+  const plansByDate = plans.reduce((acc, p) => {
+    if (!p.target_date || p.done) return acc
+    if (!acc[p.target_date]) acc[p.target_date] = []
+    acc[p.target_date].push(p)
+    return acc
+  }, {} as Record<string, PlannedFood[]>)
+
   const fetchMonthRecords = useCallback(async (date: Date) => {
     if (children.length === 0) return
     setLoading(true)
@@ -62,11 +79,20 @@ export function CalendarView({ initialRecords, children }: Props) {
     const start = format(startOfMonth(date), 'yyyy-MM-dd')
     const end = format(endOfMonth(date), 'yyyy-MM-dd')
     const childFilter = children.map(c => `child = "${c.id}"`).join(' || ')
-    const data = await pb.collection('meal_records').getFullList({
-      filter: `(${childFilter}) && date >= "${start}" && date <= "${end}"`,
-      fields: 'date,meal_time',
-    }).catch(() => [])
+
+    const [data, planData] = await Promise.all([
+      pb.collection('meal_records').getFullList({
+        filter: `(${childFilter}) && date >= "${start}" && date <= "${end}"`,
+        fields: 'date,meal_time',
+      }).catch(() => []),
+      pb.collection('planned_foods').getFullList({
+        filter: childFilter,
+        fields: 'id,food_name,target_date,done',
+      }).catch(() => []),
+    ])
+
     setRecords(data as { date: string; meal_time: string }[])
+    setPlans(planData as PlannedFood[])
     setLoading(false)
   }, [children])
 
@@ -106,6 +132,7 @@ export function CalendarView({ initialRecords, children }: Props) {
   const startDow = getDay(monthStart)
 
   const selectedDateParsed = selectedDate ? new Date(selectedDate + 'T00:00:00') : null
+  const selectedDayPlans = selectedDate ? (plansByDate[selectedDate] || []) : []
 
   return (
     <div className="space-y-3">
@@ -141,6 +168,7 @@ export function CalendarView({ initialRecords, children }: Props) {
             {days.map((day) => {
               const dateStr = format(day, 'yyyy-MM-dd')
               const dayRecords = recordsByDate[dateStr] || []
+              const dayPlans = plansByDate[dateStr] || []
               const dow = getDay(day)
               const todayFlag = isToday(day)
               const selected = selectedDate === dateStr
@@ -161,13 +189,14 @@ export function CalendarView({ initialRecords, children }: Props) {
                   }>
                     {format(day, 'd')}
                   </span>
-                  {dayRecords.length > 0 && (
-                    <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
-                      {[...new Set(dayRecords)].map(mt => (
-                        <span key={mt} className={`w-1.5 h-1.5 rounded-full ${MEAL_DOTS[mt]}`} />
-                      ))}
-                    </div>
-                  )}
+                  <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center min-h-[8px]">
+                    {[...new Set(dayRecords)].map(mt => (
+                      <span key={mt} className={`w-1.5 h-1.5 rounded-full ${MEAL_DOTS[mt] || 'bg-gray-300'}`} />
+                    ))}
+                    {dayPlans.length > 0 && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                    )}
+                  </div>
                 </button>
               )
             })}
@@ -197,41 +226,62 @@ export function CalendarView({ initialRecords, children }: Props) {
 
             {detailLoading ? (
               <p className="text-xs text-gray-400 text-center py-2">読み込み中...</p>
-            ) : dayRecordsDetail.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-3">記録がありません</p>
             ) : (
-              <div className="space-y-2">
-                {dayRecordsDetail.map(record => {
-                  const meta = MEAL_LABELS[record.meal_time]
-                  return (
-                    <div key={record.id} className={`rounded-lg border p-2.5 ${meta?.color || 'bg-gray-50'}`}>
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-base">{meta?.emoji}</span>
-                        <span className="text-xs font-semibold text-gray-700">{meta?.label}</span>
-                        {record.time && (
-                          <Badge variant="outline" className="text-xs py-0 px-1.5 h-4 text-gray-500">
-                            <Clock size={9} className="mr-0.5" />{record.time}
-                          </Badge>
-                        )}
-                      </div>
-                      {Array.isArray(record.foods) && record.foods.length > 0 ? (
+              <>
+                {dayRecordsDetail.length === 0 && selectedDayPlans.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-3">記録がありません</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dayRecordsDetail.map(record => {
+                      const meta = MEAL_LABELS[record.meal_time]
+                      return (
+                        <div key={record.id} className={`rounded-lg border p-2.5 ${meta?.color || 'bg-gray-50 border-gray-200'}`}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-base">{meta?.emoji}</span>
+                            <span className="text-xs font-semibold text-gray-700">{meta?.label || record.meal_time}</span>
+                            {record.time && (
+                              <Badge variant="outline" className="text-xs py-0 px-1.5 h-4 text-gray-500">
+                                <Clock size={9} className="mr-0.5" />{record.time}
+                              </Badge>
+                            )}
+                          </div>
+                          {Array.isArray(record.foods) && record.foods.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {record.foods.map((f, i) => (
+                                <span key={i} className="text-xs bg-white/80 border rounded px-1.5 py-0.5 text-gray-700">
+                                  {f.food_name}{f.amount ? ` ${f.amount}${f.unit}` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">食材の記録なし</p>
+                          )}
+                          {record.notes && (
+                            <p className="text-xs text-gray-500 mt-1 italic">{record.notes}</p>
+                          )}
+                        </div>
+                      )
+                    })}
+
+                    {/* 食材プラン */}
+                    {selectedDayPlans.length > 0 && (
+                      <div className="rounded-lg border border-purple-200 bg-purple-50 p-2.5">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <ShoppingCart size={12} className="text-purple-500" />
+                          <span className="text-xs font-semibold text-purple-700">食材プラン</span>
+                        </div>
                         <div className="flex flex-wrap gap-1">
-                          {record.foods.map((f, i) => (
-                            <span key={i} className="text-xs bg-white/80 border rounded px-1.5 py-0.5 text-gray-700">
-                              {f.food_name}{f.amount ? ` ${f.amount}${f.unit}` : ''}
+                          {selectedDayPlans.map(p => (
+                            <span key={p.id} className="text-xs bg-white border border-purple-200 rounded px-1.5 py-0.5 text-purple-700">
+                              {p.food_name}
                             </span>
                           ))}
                         </div>
-                      ) : (
-                        <p className="text-xs text-gray-400">食材の記録なし</p>
-                      )}
-                      {record.notes && (
-                        <p className="text-xs text-gray-500 mt-1 italic">{record.notes}</p>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -245,6 +295,7 @@ export function CalendarView({ initialRecords, children }: Props) {
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400" />昼食</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" />夕食</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-pink-400" />おやつ</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-400" />食材プラン</span>
           </div>
           <p className="text-xs text-gray-400 mt-1">日付をタップすると詳細が表示されます</p>
         </CardContent>

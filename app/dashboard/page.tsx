@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createServerClient } from '@/lib/pocketbase/server'
 import { getAgeInMonths, getCurrentStage } from '@/lib/foods-data'
 import { format } from 'date-fns'
@@ -6,7 +8,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { CalendarDays, BookOpen, Plus } from 'lucide-react'
+import { CalendarDays, BookOpen, Plus, ShoppingCart, CalendarDays as CalIcon } from 'lucide-react'
 
 export default async function DashboardPage() {
   const pb = await createServerClient()
@@ -21,13 +23,22 @@ export default async function DashboardPage() {
   const today = format(new Date(), 'yyyy-MM-dd')
 
   let todayRecords: { meal_time: string; foods: { food_name: string }[] }[] = []
+  let upcomingPlans: { id: string; food_name: string; target_date: string; notes: string }[] = []
   if (children.length > 0) {
     const childIds = children.map((c: { id: string }) => `child = "${c.id}"`).join(' || ')
-    const records = await pb.collection('meal_records').getFullList({
-      filter: `(${childIds}) && date = "${today}"`,
-      fields: 'meal_time,foods',
-    }).catch(() => [])
+    const [records, plans] = await Promise.all([
+      pb.collection('meal_records').getFullList({
+        filter: `(${childIds}) && date = "${today}"`,
+        fields: 'meal_time,foods',
+      }).catch(() => []),
+      pb.collection('planned_foods').getFullList({
+        filter: `(${childIds}) && done = false`,
+        sort: 'target_date',
+        fields: 'id,food_name,target_date,notes',
+      }).catch(() => []),
+    ])
     todayRecords = records as { meal_time: string; foods: { food_name: string }[] }[]
+    upcomingPlans = plans as { id: string; food_name: string; target_date: string; notes: string }[]
   }
 
   const mealTimeLabels: Record<string, string> = {
@@ -35,6 +46,15 @@ export default async function DashboardPage() {
     noon: '昼',
     evening: '夜',
     snack: 'おやつ',
+  }
+
+  function getDateLabel(dateStr: string) {
+    if (!dateStr) return null
+    const diff = Math.ceil((new Date(dateStr).getTime() - new Date(today).getTime()) / 86400000)
+    if (diff < 0) return `${Math.abs(diff)}日前`
+    if (diff === 0) return '今日'
+    if (diff <= 7) return `${diff}日後`
+    return format(new Date(dateStr + 'T00:00:00'), 'M/d(E)', { locale: ja })
   }
 
   return (
@@ -122,6 +142,39 @@ export default async function DashboardPage() {
           </Link>
         </CardContent>
       </Card>
+
+      {/* 食材プラン */}
+      {upcomingPlans.length > 0 && (
+        <Card className="border-purple-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShoppingCart size={16} className="text-purple-500" />
+              食材プラン
+              <Badge className="text-xs bg-purple-100 text-purple-700">{upcomingPlans.length}件</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {upcomingPlans.slice(0, 5).map(plan => (
+                <div key={plan.id} className="flex items-start gap-2 text-sm">
+                  <span className="font-medium text-gray-800 flex-1">{plan.food_name}</span>
+                  {plan.target_date && (
+                    <span className="text-xs text-purple-600 shrink-0">{getDateLabel(plan.target_date)}</span>
+                  )}
+                </div>
+              ))}
+              {upcomingPlans.length > 5 && (
+                <p className="text-xs text-gray-400">他 {upcomingPlans.length - 5} 件</p>
+              )}
+            </div>
+            <Link href="/dashboard/foods" className="block mt-3">
+              <Button variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-50 text-xs h-8">
+                食材プランを管理する
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* クイックアクセス */}
       <div className="grid grid-cols-2 gap-3">

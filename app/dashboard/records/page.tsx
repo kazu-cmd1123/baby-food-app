@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createServerClient } from '@/lib/pocketbase/server'
 import { RecordsPage } from '@/components/records-page'
 import { getAgeInMonths } from '@/lib/foods-data'

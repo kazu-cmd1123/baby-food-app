@@ -7,6 +7,7 @@ import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { getClient } from '@/lib/pocketbase/client'
 import { getFoodsForAge, FOODS } from '@/lib/foods-data'
+import { DailySummary } from '@/components/daily-summary'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -510,6 +511,8 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
           </Card>
         )
       })}
+
+      <DailySummary records={records} />
     </div>
   )
 }

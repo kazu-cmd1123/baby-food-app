@@ -7,5 +7,9 @@ export function getClient(): PocketBase {
     _pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL)
     _pb.autoCancellation(false)
   }
+  // Restore auth from cookie on every call so API rules are satisfied
+  if (typeof document !== 'undefined') {
+    _pb.authStore.loadFromCookie(document.cookie)
+  }
   return _pb
 }
