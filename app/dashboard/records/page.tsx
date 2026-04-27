@@ -10,7 +10,7 @@ interface Props {
 
 export default async function RecordsServerPage({ searchParams }: Props) {
   const params = await searchParams
-  const date = params.date || new Date().toISOString().split('T')[0]
+  const date = params.date || new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0] // JST
 
   const pb = await createServerClient()
   const userId = pb.authStore.record?.id

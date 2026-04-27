@@ -20,7 +20,8 @@ export default async function DashboardPage() {
   }).catch(() => [])
   const children = childrenResult
 
-  const today = format(new Date(), 'yyyy-MM-dd')
+  // サーバーはUTCのため、日本時間（UTC+9）で今日の日付を取得
+  const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   let todayRecords: { meal_time: string; foods: { food_name: string }[] }[] = []
   let upcomingPlans: { id: string; food_name: string; target_date: string; notes: string }[] = []
@@ -114,7 +115,7 @@ export default async function DashboardPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <span>📝</span>
-            今日の記録（{format(new Date(), 'M月d日(E)', { locale: ja })}）
+            今日の記録（{format(new Date(today + 'T00:00:00'), 'M月d日(E)', { locale: ja })}）
           </CardTitle>
         </CardHeader>
         <CardContent>

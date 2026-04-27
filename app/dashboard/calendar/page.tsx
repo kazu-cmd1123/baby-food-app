@@ -13,7 +13,7 @@ export default async function CalendarPage() {
     sort: 'created',
   }).catch(() => [])
 
-  const now = new Date()
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000) // JST
   const year = now.getFullYear()
   const month = now.getMonth() + 1
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`
