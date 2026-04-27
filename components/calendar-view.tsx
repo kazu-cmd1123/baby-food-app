@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, getDay } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -57,6 +57,12 @@ export function CalendarView({ initialRecords, initialPlans, children }: Props) 
   )
   const [dayRecordsDetail, setDayRecordsDetail] = useState<MealRecord[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
+
+  // 初期表示時に今日の詳細を取得
+  useEffect(() => {
+    if (selectedDate) fetchDayDetail(selectedDate)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const recordsByDate = records.reduce((acc, r) => {
     if (!acc[r.date]) acc[r.date] = []
