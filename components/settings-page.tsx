@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Trash2, Plus, LogOut, Baby, AlertTriangle } from 'lucide-react'
+import { Trash2, Plus, LogOut, Baby, AlertTriangle, FileText } from 'lucide-react'
+import Link from 'next/link'
 
 interface Child {
   id: string
@@ -350,6 +351,25 @@ export function SettingsPage({ userEmail, initialChildren, initialAllergies }: P
               )
             })
           )}
+        </CardContent>
+      </Card>
+
+      {/* 利用規約・プライバシーポリシー */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm text-gray-700 flex items-center gap-2">
+            <FileText size={16} className="text-gray-400" />
+            法的情報
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-2">
+          <Link href="/terms" className="block text-sm text-orange-600 hover:underline">
+            利用規約
+          </Link>
+          <Link href="/privacy" className="block text-sm text-orange-600 hover:underline">
+            プライバシーポリシー
+          </Link>
+          <p className="text-xs text-gray-400 pt-1">バージョン 1.0.0</p>
         </CardContent>
       </Card>
     </div>
