@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { getClient } from '@/lib/pocketbase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,15 +19,23 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const pb = getClient()
-      await pb.collection('users').authWithPassword(email, password)
-      document.cookie = pb.authStore.exportToCookie({ httpOnly: false, sameSite: 'Lax' })
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? 'ログインに失敗しました。')
+        return
+      }
       router.push('/dashboard')
       router.refresh()
     } catch {
-      toast.error('ログインに失敗しました。メールアドレスとパスワードを確認してください。')
+      toast.error('通信エラーが発生しました。しばらくしてからお試しください。')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -73,6 +80,11 @@ export default function LoginPage() {
               アカウントをお持ちでない方は{' '}
               <Link href="/auth/register" className="text-orange-600 hover:underline font-medium">
                 新規登録
+              </Link>
+            </p>
+            <p className="text-sm text-muted-foreground text-center">
+              <Link href="/auth/reset-password" className="text-orange-600 hover:underline">
+                パスワードをお忘れの方
               </Link>
             </p>
           </CardFooter>

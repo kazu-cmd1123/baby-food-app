@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { getClient } from '@/lib/pocketbase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,24 +17,30 @@ export default function RegisterPage() {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
-    if (password.length < 6) {
-      toast.error('パスワードは6文字以上で設定してください')
+    if (password.length < 8) {
+      toast.error('パスワードは8文字以上で設定してください')
       return
     }
     setLoading(true)
     try {
-      const pb = getClient()
-      await pb.collection('users').create({ email, password, passwordConfirm: password })
-      await pb.collection('users').authWithPassword(email, password)
-      document.cookie = pb.authStore.exportToCookie({ httpOnly: false, sameSite: 'Lax' })
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? '登録に失敗しました。')
+        return
+      }
       toast.success('登録が完了しました！')
       router.push('/dashboard')
       router.refresh()
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '登録に失敗しました'
-      toast.error(msg)
+    } catch {
+      toast.error('通信エラーが発生しました。しばらくしてからお試しください。')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -61,17 +66,24 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">パスワード（6文字以上）</Label>
+              <Label htmlFor="password">パスワード（8文字以上）</Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
                 autoComplete="new-password"
               />
             </div>
+            <p className="text-xs text-gray-500">
+              登録することで、
+              <Link href="/terms" className="text-orange-600 hover:underline">利用規約</Link>
+              および
+              <Link href="/privacy" className="text-orange-600 hover:underline">プライバシーポリシー</Link>
+              に同意したものとみなします。
+            </p>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
             <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600" disabled={loading}>

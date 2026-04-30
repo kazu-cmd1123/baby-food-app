@@ -6,7 +6,12 @@
       { "name": "user", "type": "relation", "collectionId": "_pb_users_auth_", "required": true },
       { "name": "name", "type": "text", "required": true },
       { "name": "birthday", "type": "text", "required": true }
-    ]
+    ],
+    "listRule": "user = @request.auth.id",
+    "viewRule": "user = @request.auth.id",
+    "createRule": "@request.auth.id != ''",
+    "updateRule": "user = @request.auth.id",
+    "deleteRule": "user = @request.auth.id"
   },
   {
     "name": "meal_records",
@@ -15,10 +20,16 @@
       { "name": "child", "type": "relation", "collectionId": "children", "required": true },
       { "name": "date", "type": "text", "required": true },
       { "name": "meal_time", "type": "select", "values": ["morning", "noon", "evening", "snack"], "required": true },
+      { "name": "time", "type": "text" },
       { "name": "foods", "type": "json" },
       { "name": "notes", "type": "text" },
       { "name": "photos", "type": "file", "maxSelect": 10, "mimeTypes": ["image/jpeg", "image/png", "image/webp", "image/heic"] }
-    ]
+    ],
+    "listRule": "child.user = @request.auth.id",
+    "viewRule": "child.user = @request.auth.id",
+    "createRule": "child.user = @request.auth.id",
+    "updateRule": "child.user = @request.auth.id",
+    "deleteRule": "child.user = @request.auth.id"
   },
   {
     "name": "allergy_records",
@@ -29,6 +40,46 @@
       { "name": "severity", "type": "select", "values": ["mild", "moderate", "severe"], "required": true },
       { "name": "notes", "type": "text" },
       { "name": "date", "type": "text", "required": true }
-    ]
+    ],
+    "listRule": "child.user = @request.auth.id",
+    "viewRule": "child.user = @request.auth.id",
+    "createRule": "child.user = @request.auth.id",
+    "updateRule": "child.user = @request.auth.id",
+    "deleteRule": "child.user = @request.auth.id"
+  },
+  {
+    "name": "planned_foods",
+    "type": "base",
+    "fields": [
+      { "name": "child", "type": "relation", "collectionId": "children", "required": true },
+      { "name": "food_name", "type": "text", "required": true },
+      { "name": "target_date", "type": "text" },
+      { "name": "done", "type": "bool" },
+      { "name": "notes", "type": "text" }
+    ],
+    "listRule": "child.user = @request.auth.id",
+    "viewRule": "child.user = @request.auth.id",
+    "createRule": "child.user = @request.auth.id",
+    "updateRule": "child.user = @request.auth.id",
+    "deleteRule": "child.user = @request.auth.id"
+  },
+  {
+    "name": "custom_foods",
+    "type": "base",
+    "fields": [
+      { "name": "child", "type": "relation", "collectionId": "children", "required": true },
+      { "name": "name", "type": "text", "required": true },
+      { "name": "category", "type": "text" },
+      { "name": "min_months", "type": "number" },
+      { "name": "preparation", "type": "text" },
+      { "name": "nutrition", "type": "text" },
+      { "name": "caution", "type": "text" },
+      { "name": "is_allergen", "type": "bool" }
+    ],
+    "listRule": "child.user = @request.auth.id",
+    "viewRule": "child.user = @request.auth.id",
+    "createRule": "child.user = @request.auth.id",
+    "updateRule": "child.user = @request.auth.id",
+    "deleteRule": "child.user = @request.auth.id"
   }
 ]
