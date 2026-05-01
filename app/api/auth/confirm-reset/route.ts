@@ -33,11 +33,15 @@ export async function POST(req: NextRequest) {
     const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL)
     pb.autoCancellation(false)
 
-    // Admin認証でパスワード更新
-    await pb.admins.authWithPassword(
-      process.env.PB_ADMIN_EMAIL!,
-      process.env.PB_ADMIN_PASSWORD!
-    )
+    // Admin認証（PocketBase v0.22系の旧エンドポイントを使用）
+    const adminRes = await fetch(`${process.env.NEXT_PUBLIC_POCKETBASE_URL}/api/admins/auth-with-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity: process.env.PB_ADMIN_EMAIL, password: process.env.PB_ADMIN_PASSWORD }),
+    })
+    if (!adminRes.ok) throw new Error('Admin auth failed')
+    const { token: adminToken } = await adminRes.json()
+    pb.authStore.save(adminToken, null)
 
     await pb.collection('users').update(payload.userId, {
       password,
