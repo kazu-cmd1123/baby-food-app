@@ -85,8 +85,8 @@ export async function POST(req: NextRequest) {
         </div>
       `,
     })
-  } catch {
-    // エラーでも成功と同じレスポンスを返す
+  } catch (err) {
+    console.error('[reset-password] error:', err)
   }
 
   return NextResponse.json({ success: true })
