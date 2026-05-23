@@ -38,8 +38,10 @@ export function FoodStats({ records }: Props) {
     }> = {}
 
     records.forEach(r => {
-      if (!Array.isArray(r.foods)) return
-      r.foods.forEach(f => {
+      // PocketBaseがJSON文字列で返す場合もパースする
+      const foods = typeof r.foods === 'string' ? (() => { try { return JSON.parse(r.foods) } catch { return [] } })() : r.foods
+      if (!Array.isArray(foods)) return
+      foods.forEach((f: FoodEntry) => {
         if (!f.food_name) return
         if (!map[f.food_name]) {
           map[f.food_name] = { count: 0, amounts: {}, reactions: {}, lastDate: '' }
@@ -47,6 +49,7 @@ export function FoodStats({ records }: Props) {
         const entry = map[f.food_name]
         entry.count++
         if (r.date > entry.lastDate) entry.lastDate = r.date
+
 
         const num = parseFloat(f.amount)
         if (f.amount && !isNaN(num) && f.unit) {

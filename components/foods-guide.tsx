@@ -84,8 +84,12 @@ export function FoodsGuide({ ageMonths, childName, childId, allRecords = [], ini
   const eatenFoods = useMemo(() => {
     const map: Record<string, number> = {}
     allRecords.forEach(r => {
-      if (!Array.isArray(r.foods)) return
-      r.foods.forEach(f => {
+      // PocketBaseがJSON文字列で返す場合もパースする
+      const foods = typeof r.foods === 'string'
+        ? (() => { try { return JSON.parse(r.foods) } catch { return [] } })()
+        : r.foods
+      if (!Array.isArray(foods)) return
+      foods.forEach((f: { food_name: string }) => {
         if (f.food_name) map[f.food_name] = (map[f.food_name] || 0) + 1
       })
     })
@@ -168,9 +172,12 @@ export function FoodsGuide({ ageMonths, childName, childId, allRecords = [], ini
       setCustomFoods(prev => [...prev, data as unknown as CustomFood])
       setForm(BLANK_FORM)
       setShowAddForm(false)
-      toast.success('食材を追加しました')
-    } catch {
-      toast.error('追加に失敗しました')
+      setMainTab('guide') // 食材ガイドタブに切り替え
+      setActiveTab('current') // 現在の月齢タブに切り替え
+      toast.success(`「${form.name.trim()}」を食材リストに追加しました`)
+    } catch (err) {
+      console.error('custom food create error:', err)
+      toast.error('追加に失敗しました。しばらくしてから再試行してください。')
     }
     setSaving(false)
   }

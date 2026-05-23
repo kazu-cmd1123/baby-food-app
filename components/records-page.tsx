@@ -193,11 +193,18 @@ export function RecordsPage({ date, child, ageMonths, initialRecords }: Props) {
     pendingPhotos.forEach(file => formData.append('photos', file))
 
     try {
+      let saved: MealRecord
       if (editingRecord.id) {
-        await pb.collection('meal_records').update(editingRecord.id, formData)
+        saved = await pb.collection('meal_records').update(editingRecord.id, formData) as unknown as MealRecord
       } else {
-        await pb.collection('meal_records').create(formData)
+        saved = await pb.collection('meal_records').create(formData) as unknown as MealRecord
       }
+      // ローカルstateをすぐ更新（router.refreshを待たずに反映）
+      setRecords(prev => {
+        const exists = prev.find(r => r.id === saved.id)
+        if (exists) return prev.map(r => r.id === saved.id ? { ...saved, foods: editingRecord.foods || [] } : r)
+        return [...prev, { ...saved, foods: editingRecord.foods || [] }]
+      })
       toast.success('記録を保存しました')
       setPendingPhotos([])
       router.refresh()
